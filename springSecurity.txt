@@ -1,0 +1,153 @@
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Spring Security~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1) End user sends a request through restAPI and first it goes to Authentication Filter(servelet filter class that see the user is authenticated or not). 	If user is not authenticated then it send that request to the Authentication Mangager(check the details send by the user is correct, userName and
+   password is valid).
+
+2) Authentication Manager internally uses Authentication Provider(where login logic or authentication logic is defined), it does not fetch user details
+   from the database, it uses userService for that. Authentication Manager has 2 component, 1st is userService and 2nd is 
+   Password Encoder(for purpose of password not stored in plain text).
+
+3) If details is right then Authentication Provider sends details to Authentication Manager then Authentication Manager sends back to Authentication 
+   Filter.
+
+4) If authentication success then Authentication Filter uses AuthenticationSuccessHandler. AuthenticationSuccessHandler stores the user information in
+   Security Context as new Security Context Entity.
+
+5) If authentication fails then Authentication Filter uses AuthenticationFailurehandler. AuthenticationFailureHandler sends response back to client.
+
+*******************************Authentication Filter***************************************
+i) Authentication Filter is the only class and rest of then are interface. And it implements javax.servelet.filter
+
+ii) As request comes to Authentication Filter, it first checks details in Security Context and if details found then it send response back to client. It will not use Authentication Manager.
+
+*******************************Authentication Manager***************************************
+i) Authentication Manager is an interface and it has method authenticate(Authentication authentication). It uses userService and PasswordEncoder.
+
+*******************************Security Context**************************************
+i) Security Context is an interface. It has getAuthenticate() method to return Authentication Object and setAuthenticate(Authentication authentication)
+   to store Authentication Object.
+
+*************************************************Points**********************************************************
+1) If we include spring-security then default behaviour of spring-security will applied. A random password will be generated and printed in console. So when we call any api so we will have to use Basic Authentication by passing userName as user and password as random generated password.
+
+2) We can configure our Basic Authentication
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/public/**").permitAll() // Allow public access to these paths
+                .anyRequest().authenticated() // Require authentication for all other requests
+            )
+            .formLogin(formLogin -> formLogin
+                .loginPage("/login") // Specify the login page
+                .defaultSuccessUrl("/home", true) // Redirect to home page after successful login
+                .permitAll() // Allow everyone to see the login page
+            )
+            .logout(logout -> logout
+                .permitAll() // Allow everyone to access the logout functionality
+            );
+
+        return http.build();
+    }
+
+    /* We can define multiple SecurityFilterChain */
+
+    @Bean
+	public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+	    http
+	        .securityMatcher("/web/**") // Apply this filter chain to paths starting with /web/
+	        .authorizeHttpRequests(authorize -> authorize
+	            .requestMatchers("/web/public/**").permitAll()
+	            .anyRequest().authenticated()
+	        )
+	        .formLogin(formLogin -> formLogin
+	            .loginPage("/web/login")
+	            .defaultSuccessUrl("/web/home", true)
+	            .permitAll()
+	        )
+	        .logout(logout -> logout.permitAll());
+
+	    return http.build();
+	}
+}
+
+
+Eg:
+-------------------------------------------------------------------------------------------------------------
+@Configuration
+public class SecurityConfig {
+
+    //Custom "UserDetailsService"
+    @Bean
+    UserDetailsService userDetailsService() {
+        InMemoryUserDetailsManager userDetailsManager = new InMemoryUserDetailsManager();
+        UserDetails user = User.withUsername("azhar").password(passwordEncoder().encode("password")).authorities("read").build();
+        userDetailsManager.createUser(user);
+        return userDetailsManager;
+    }
+    @Bean
+    BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+    @Bean
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.httpBasic(Customizer.withDefaults());
+        http.authorizeHttpRequests(authorize -> authorize
+                .anyRequest().authenticated());
+        return http.build();
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+
+3) We can configure our own Authentication Provider
+
+@Component
+public class MyAuthenticationProvider implements AuthenticationProvider {
+    @Override
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        String userName = authentication.getName();
+        String password = authentication.getCredentials().toString();
+        if("azhar".equals(userName) && "password".equals(password)) {
+            return new UsernamePasswordAuthenticationToken(userName, password, new ArrayList<>());
+        }
+        throw new BadCredentialsException("Invalid Username or Password");
+    }
+
+    @Override
+    public boolean supports(Class<?> authentication) {
+        return authentication.equals(UsernamePasswordAuthenticationToken.class);
+    }
+}
+
+
+4) We can use our own Authentication Filter
+
+@Component
+public class MySecurityFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws ServletException, IOException {
+        chain.doFilter(request, response);
+    }
+} /* There are mutiple implementation class of Filter as well and we can use it according to our need */
+
+
+
+
+1) Audit logging using brocker queue kafka
+2) spring security
+3) solace queue producer and lisener
+4) use of completeble future, circuit breaker(Reseielence4j), transactional
+
+
+
+
+
+
+
+
+
+

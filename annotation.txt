@@ -1,0 +1,206 @@
+~~~~~~~ JSON annotation (used to control the serialization and deserialization process of Java objects to and from JSON) ~~~~~~~
+
+1) @JsonProperty ==> @JsonProperty("user_name") => This annotation is used to specify the JSON property name that corresponds to a Java field.
+
+2) @JsonIgnore ==> This annotation is used to ignore certain fields during serialization and deserialization.
+	
+	(i) @JsonIgnoreProperties(ignoreUnknown = true)
+
+3) @JsonInclude ==> This annotation is used to include properties based on their values. For example, you can use it to ignore null properties.
+
+	(i) @JsonInclude(JsonInclude.Include.NON_NULL)
+
+	(ii) @JsonIgnore
+    	 private int userAge;
+
+4) @JsonFormat ==> This annotation is used to specify the format of dates and times during serialization and deserialization.
+
+	(i) @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+		private Date eventDate;
+
+5) @JsonCreator and @JsonProperty ==> These annotations are used together to define constructors or factory methods for deserialization.
+	
+	(i) @JsonCreator
+		public User(@JsonProperty("user_name") String userName, @JsonProperty("user_age") int userAge) {
+		    this.userName = userName;
+		    this.userAge = userAge;
+		}
+
+
+~~~~~~~~~~ Dependency injection ~~~~~~~~~~~~
+
+1) Constructor injection => if spring boot creates bean and single arg constructor present then no need to use autowired annotation, If multiple arg constructor is present then we have to use autowired annotation to tell spring boot to use that constructor while creating bean and inject those argument while creating bean. recommended to use.
+
+2) Setter injection => use autowired annotation above setter methods.
+
+3) Field injection => use autowired annotation above that field.
+
+
+~~~~~~~~~~~~~~~ Bean (beans are objects managed by the Spring IoC (Inversion of Control) container) ~~~~~~~~~~~~~~~~~~~~~~~~
+
+1) @Service => Indicates that a class is a service component in the business layer.
+
+2) @Controller => Indicates that a class is a controller component in the presentation layer.
+
+3) @RestController => Combination of @Controller and @ResponseBody, used for RESTful web services.
+
+4) @Configuration => Beans annotated with @Configuration are used to define beans and their dependencies explicitly.
+
+	(i) @Configuration => Indicates that a class provides bean definitions.
+
+	(ii) @Bean => Indicates that a method produces a bean to be managed by the Spring IoC container.
+
+
+5) @Repository => Indicates that a class is a repository component for database access.
+
+6) @Component => Generic stereotype annotation for any Spring-managed component.
+
+7) @ComponentScan => Configures component scanning for Spring-managed components.
+
+8) @Import => Imports additional configuration classes.
+
+---------------------- Summary -------------------------
+
+(i) Component Scanning Beans: Annotated with @Component, @Service, @Repository, or @Controller.
+
+(ii) Configuration Beans: Annotated with @Configuration, with beans defined using @Bean methods.
+
+(iii) Specialized Annotations: Provide additional functionality or configurations, such as @RestController, @ComponentScan, and @Import.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~ Steps happens while creation of bean by spring boot ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+During the creation of a bean by Spring Boot, several steps occur behind the scenes to ensure that the bean is properly instantiated and configured. These steps include:
+
+1) Component Scanning: Spring Boot scans the application for classes annotated with @Component, @Service, @Repository, @Controller, and other stereotype annotations.
+
+2) Bean Definition: For each scanned component, Spring Boot creates a corresponding bean definition, which includes information about the bean's class, scope, dependencies, and initialization methods.
+
+3) Dependency Injection: Spring Boot injects dependencies into the bean by inspecting its constructors, setter methods, or fields annotated with  @Autowired, @Inject, or @Resource.
+
+4) Bean Instantiation: Spring Boot instantiates the bean by calling its constructor or factory method (if provided) using reflection.
+
+5) Property Injection: Spring Boot sets the values of properties and dependencies defined in the bean, including those annotated with @Value.
+
+6) Post-Initialization Callbacks: Spring Boot invokes any @PostConstruct annotated methods to perform additional initialization logic after the bean has been instantiated and configured.
+
+7) Bean Lifecycle Callbacks: Spring Boot manages the lifecycle of the bean by invoking methods annotated with @PreDestroy when the bean is being destroyed.
+
+8) Bean Registration: Once fully configured, Spring Boot registers the bean with the application context, making it available for injection and use by other beans and components.
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Database Operations Options ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1) Basic CRUD Operations: Save, find, update, delete documents.
+
+	findById(), save(), delete()
+
+
+2) Advanced Queries: Using @Query annotations or MongoTemplate.
+
+	(i) Using @Query annotation
+	@Query("{ 'age' : { $gt: ?0 } }")
+    List<Person> findPersonsOlderThan(int age);
+
+    (ii) Using mongoTemplate
+    Query query = new Query();
+    query.addCriteria(Criteria.where("age").gte(minAge).lte(maxAge));
+    return mongoTemplate.find(query, Person.class);
+
+
+3) Aggregation: For complex data processing.
+
+	Aggregation aggregation = Aggregation.newAggregation(
+        Aggregation.group("age").count().as("count")
+    );
+
+    AggregationResults<AgeStats> results = mongoTemplate.aggregate(aggregation, "person", AgeStats.class);
+    return results.getMappedResults();
+
+
+4) Custom Implementations: For custom repository behavior.
+
+	public interface CustomPersonRepository {
+	    List<Person> customFindMethod(String criteria);
+	}
+
+
+	public class CustomPersonRepositoryImpl implements CustomPersonRepository {
+	    @Autowired
+	    private MongoTemplate mongoTemplate;
+
+	    @Override
+	    public List<Person> customFindMethod(String criteria) {
+	        Query query = new Query();
+	        query.addCriteria(Criteria.where("someField").is(criteria));
+	        return mongoTemplate.find(query, Person.class);
+	    }
+	}
+
+	public interface PersonRepository extends MongoRepository<Person, String>, CustomPersonRepository {
+	}
+
+	---------------------- Using Querydsl ----------------------------
+
+	public interface PersonRepository extends MongoRepository<Person, String>, QuerydslPredicateExecutor<Person> {
+	}
+
+	private PersonRepository personRepository;
+
+    public Iterable<Person> findByLastName(String lastName) {
+        QPerson qPerson = QPerson.person;
+        BooleanExpression predicate = qPerson.lastName.eq(lastName);
+        return personRepository.findAll(predicate);
+    }
+
+~~~~~~~~~~~~~~~~~ Mutiple Implementation Class of an interface ~~~~~~~~~~~~~~~~~
+
+1) @Primary: Use when you have multiple implementations and want to mark one as the default.
+
+2) @Qualifier: Use when you need to specify which implementation to inject at a particular injection point.
+
+	public interface MyService {
+	    void performService();
+	}
+	
+	@Service
+	@Qualifier("serviceImpl1")
+	public class MyServiceImpl1 implements MyService {
+	    @Override
+	    public void performService() {
+	        System.out.println("Service performed by MyServiceImpl1");
+	    }
+	}
+
+	@Service
+	@Qualifier("serviceImpl2")
+	public class MyServiceImpl2 implements MyService {
+	    @Override
+	    public void performService() {
+	        System.out.println("Service performed by MyServiceImpl2");
+	    }
+	}
+
+	public MyComponent(@Qualifier("serviceImpl1") MyService myService) {
+        this.myService = myService;
+    }
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The @EqualsAndHashCode annotation from Lombok simplifies the creation of equals and hashCode methods in your Spring Boot application. It provides flexibility to include or exclude specific fields and to include the fields from the superclass if necessary
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Important ===> Object returing from rest api should have public getter setter otherwise you will get some unexpected results.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@transient ==> If use annotation on any field of model then that field will not save into db.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
